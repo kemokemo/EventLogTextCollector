@@ -298,8 +298,6 @@ Sub EVENTSINK_OnObjectReady(oItem, oAsyncContext)
 
     With oItem
         If bVerbose Then sInsertions = MakeCleanLine(JoinStringsArray(.InsertionStrings)) 'Mostly overlaps with the Message data.
-        If bVerbose Then sByteDataInASCII = ByteArrayToASCII(.Data) 'Usually not needed, often overlaps with .Message and .InsertionStrings data.
-        If bDumpHex Then sByteDataInHex = ByteArrayToHex(.Data)     'Very rarely needed, can produce tons of data, so watch out. 
 
         oRecordSet.AddNew 
         oRecordSet.Fields("Computer").Value = sIPaddress
@@ -344,36 +342,37 @@ End Sub
 
 Sub WriteRecordSetToFile()    
     If Not bDebug Then On Error Resume Next
-    Dim sData, oFile, oTextStream, iTimer
+    Dim sData, oTextStream, iTimer
 
-    'Open CSV file, if it exists, or create a new one with appropriate collumn headers row if it doesn't.
-    If oFileSystem.FileExists(sFile) Then 
-        Set oFile = oFileSystem.GetFile(sFile)
-        Set oTextStream = oFile.OpenAsTextStream(ForAppending, OpenUsingDefault)
-    Else
-        Set oTextStream = oFileSystem.CreateTextFile(sFile)
-        oTextStream.WriteLine("Computer,Date,Time,RecordNumber,Log,User,EventCodeID,SourceName,EventIdentifier,Category,EventType,Message,InsertionStrings,ByteDataInASCII,ByteDataInHex")
-    End If
+    Set oTextStream = CreateObject("ADODB.Stream")
+    oTextStream.Mode = 3
+    oTextStream.Type = 2
+    oTextStream.Charset = "UTF-8"
+    oTextStream.Open()
 
-    'Ensure that insertion point in CSV file is at the beginning of a new line.
-    If oTextStream.Column <> 1 Then oTextStream.WriteBlankLines(1)
-    
+    oTextStream.WriteText("Computer,Date,Time,RecordNumber,Log,User,EventCodeID,SourceName,EventIdentifier,Category,EventType,Message,InsertionStrings,ByteDataInASCII,ByteDataInHex" & vbCrLf)
+   
     If bDebug Then iTimer = Timer()
 
     oRecordSet.Sort = "Date ASC, Time ASC, RecordNumber ASC"  
     If Not oRecordSet.EOF Then oRecordSet.MoveFirst 'Log may be empty. 
 
     Do While Not oRecordSet.EOF
-        oTextStream.Write(oRecordSet.GetString(2, 1, ",", vbCrLf, ""))  '2 is an ADO constant (adClipString), 75 is number of lines to process, then field delimeter, row delimeter, null char.
+        oTextStream.WriteText(oRecordSet.GetString(2, 1, ",", vbCrLf, ""))  '2 is an ADO constant (adClipString), 75 is number of lines to process, then field delimeter, row delimeter, null char.
     Loop
     
     If bDebug Then oStdErr.WriteLine "Time Spent Sorting And Appending Data: " & Timer() - iTimer
+
+    If oFileSystem.FileExists(sFile) Then 
+        oTextStream.SaveToFile sFile, 2
+    Else
+        oTextStream.SaveToFile sFile, 1
+    End If
 
     oRecordSet.Close
     oTextStream.Close
     Set oRecordSet = Nothing
     Set oTextStream = Nothing   
-    Set oFile = Nothing
     
     Call CatchAnyErrorsAndQuit("Problem writing to file.")
     If bDebug Then oStdErr.WriteLine "Exited WriteRecordSetToFile: " & Timer() - iStart
@@ -521,25 +520,7 @@ Function MakeCleanLine(sText)
         MakeCleanLine = ""
         Exit Function
     Else
-        If Not IsObject(oRegExp) Then Set oRegExp = New RegExp
-        oRegExp.Global = True
-        oRegExp.MultiLine = True  
-        
-        'Reduce multiple whitespaces to just one space.
-        oRegExp.Pattern = "\s+"   
-        MakeCleanLine = oRegExp.Replace(sText," ")
-        
-        'If a non-Basic-Latin char has a space or dash beside it, just delete it.
-        'The problem is that oTextStream.Write() apparently cannot handle these
-        'chars in 64-bit Windows 7 or 2008-R2 (???). 
-        oRegExp.Pattern = "[\-\s]+[^\u0020-\u007E]+|[^\u0020-\u007E]+[\-\s]+"
-        MakeCleanLine = oRegExp.Replace(sText,"")
-
-        'Replace non-Basic-Latin chars with spaces. Not perfect, I know...
-        oRegExp.Pattern = "[^\u0020-\u007E]+"      
-        MakeCleanLine = oRegExp.Replace(sText," ")        
-        
-        MakeCleanLine = Trim(MakeCleanLine)
+        MakeCleanLine = sText
     End If
 End Function
 
@@ -585,14 +566,9 @@ Function QuoteComma(sData)
 
     QuoteComma = CStr(sData)    
     QuoteComma = Replace(QuoteComma, """", "``")  'Replace double-quotes with two backticks.
-    QuoteComma = Replace(QuoteComma, vbCrLf, "")  'Delete the weird extra newlines MS adds for no sane reason...
     QuoteComma = Trim(QuoteComma)                 '    ...and better to do it here than with a RegExp later (expensive)
     
-    If InStr(QuoteComma, ",") = 0 Then
-        QuoteComma = QuoteComma & ","
-    Else
-        QuoteComma = """" & QuoteComma & """" & ","  'Double-quote the string because of the comma(s) inside it.
-    End If
+    QuoteComma = """" & QuoteComma & """" & ","
 End Function
 
 
@@ -603,14 +579,7 @@ Function Quote(sData)
         Exit Function
     End If
 
-    Quote = CStr(sData)    
-    Quote = Replace(Quote, """", "``")  'Replace double-quotes with two backticks.
-    Quote = Replace(Quote, vbCrLf, "")  'Delete the weird extra newlines MS adds for no sane reason...
-    Quote = Trim(Quote)                 '    ...and better to do it here than with a RegExp later (expensive)
-    
-    If InStr(Quote, ",") <> 0 Then
-        Quote = """" & Quote & """"     'Double-quote the string because of the comma(s) inside it.
-    End If
+    Quote = sData
 End Function
 
 
