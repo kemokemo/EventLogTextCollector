@@ -50,6 +50,7 @@ Dim iStart      : iStart = Timer()           'Track how long the script runs.
 Dim iCount      : iCount = 0                 'Count of event log items being processed.
 Dim sCleared    : sCleared = "Logs Cleared:" 'List of log names that were successfully cleared.
 Dim iTimeWithObject : iTimeWithObject = 0    'A debugging timer.
+Dim timeZoneOffset : timeZoneOffset = 0
 
 Dim oFileSystem : Set oFileSystem = WScript.CreateObject("Scripting.FileSystemObject")
 Dim oWshShell   : Set oWshShell = WScript.CreateObject("WScript.Shell")
@@ -66,6 +67,7 @@ Call CatchAnyErrorsAndQuit("Problem declaring variables and creating common obje
 
 Call ProcessCommandLineArguments()
 Call BuildConnectionlessRecordSet()
+Call GetTimeZoneOffset()
 Call ProcessEachLog()  'This calls ClearLog() when required. 
 Call WriteRecordSetToFile() 
 
@@ -190,6 +192,17 @@ Sub BuildConnectionlessRecordSet()
     If bDebug Then oStdErr.WriteLine "Exited BuildConnectionlessRecordSet: " & CDbl(Timer() - iStart)
 End Sub
 
+
+Sub GetTimeZoneOffset()
+
+    Dim cTimeZone : Set cTimeZone = oWMI.ExecQuery("Select * from Win32_TimeZone")
+    Dim oTimeZone
+    For Each oTimeZone in cTimeZone
+        timeZoneOffset = oTimeZone.Bias / 60
+        Exit For
+    Next
+
+End Sub
 
 
 Sub ProcessEachLog()
