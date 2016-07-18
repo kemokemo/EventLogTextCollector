@@ -309,13 +309,16 @@ Sub EVENTSINK_OnObjectReady(oItem, oAsyncContext)
     sByteDataInASCII = ""
     sByteDataInHex = ""
 
+    Dim localTimeGenerated
     With oItem
         If bVerbose Then sInsertions = MakeCleanLine(JoinStringsArray(.InsertionStrings)) 'Mostly overlaps with the Message data.
 
+        localTimeGenerated = ApplyTimeZoneOffset(.TimeGenerated)
+
         oRecordSet.AddNew 
         oRecordSet.Fields("Computer").Value = sIPaddress
-        oRecordSet.Fields("Date").Value = Quote(GetDate(.TimeGenerated))  'Need to sort on these date/time fields, but ADO reformats them when GetString-ing the data.
-        oRecordSet.Fields("Time").Value = Quote(GetTime(.TimeGenerated))
+        oRecordSet.Fields("Date").Value = Quote(GetDate(localTimeGenerated))  'Need to sort on these date/time fields, but ADO reformats them when GetString-ing the data.
+        oRecordSet.Fields("Time").Value = Quote(GetTime(localTimeGenerated))
         oRecordSet.Fields("RecordNumber").Value = Quote(.RecordNumber)
         oRecordSet.Fields("TheRestOfTheData").Value =   QuoteComma(.Logfile) &_
                                                         QuoteComma(.User) &_ 
@@ -605,7 +608,6 @@ Function GetTime(sWmiDate)
 End Function
 
 
-
 Function GetDate(sWmiDate)
     'Pass in a WMI date like "20041229114458.000000-360"    
     '_____________MONTH_____________________DAY_______________________YEAR_________
@@ -613,5 +615,46 @@ Function GetDate(sWmiDate)
     GetDate = DateValue(GetDate)  'RecordSet needs a VB Date value.  
 End Function
 
+
+Function ApplyTimeZoneOffset(sWmiDate)
+    ApplyTimeZoneOffset = ConvertWmiDateToStandardDate(sWmiDate)
+    ApplyTimeZoneOffset = DateAdd("h", timeZoneOffset, ApplyTimeZoneOffset)
+    ApplyTimeZoneOffset = ConvertStandardDateToWmiDate(ApplyTimeZoneOffset)
+End Function
+
+Function ConvertWmiDateToStandardDate(sWmiDate)
+    'Convert WMI date like "20041229114458.000000-360"
+    'to Standard date like "2004/12/29 11:44:58"
+    Dim standardDate
+    standardDate = Mid(sWmiDate,5,2) & "/" & Mid(sWmiDate,7,2) & "/" & Mid(sWmiDate,1,4)
+    standardDate = DateValue(standardDate)
+
+    Dim standardTime
+    standardTime = Mid(sWmiDate,9,2) & ":" & Mid(sWmiDate,11,2) & ":" & Mid(sWmiDate,13,2)
+    standardTime = TimeValue(standardTime)
+
+    ConvertWmiDateToStandardDate = standardDate & " " & standardTime
+End Function
+
+Function ConvertStandardDateToWmiDate(sStandardDate)
+    Dim target
+
+    target = Year(sStandardDate)
+    target = target & AdjustLength(Month(sStandardDate))
+    target = target & AdjustLength(Day(sStandardDate))
+    target = target & AdjustLength(Hour(sStandardDate))
+    target = target & AdjustLength(Minute(sStandardDate))
+    target = target & AdjustLength(Second(sStandardDate))
+
+    ConvertStandardDateToWmiDate = target & ".000000-000"
+End Function
+
+Function AdjustLength(sDate)
+    If Len(sDate) = 1 Then
+        AdjustLength = "0" & sDate
+    Else
+        AdjustLength = sDate
+    End If
+End Function
 
 'END OF SCRIPT************************************************************************
