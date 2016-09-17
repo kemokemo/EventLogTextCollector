@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\DumpEventLog.vbs" />
+    <None Include="..\..\scripts\DumpEventLog.vbs" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4747D3BF-572D-4EF6-BD3E-175A76029524}</ProjectGuid>
