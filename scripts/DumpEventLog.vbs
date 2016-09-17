@@ -1,8 +1,8 @@
 '***********************************************************************************
 ' Script Name: DumpEventLog.vbs
-'     Version: 3.0.1
-'      Author: Jason Fossen
-'Last Updated: 1.Dec.2009
+'     Version: 3.0.2
+'      Author: KemoKemo (Original Author is Jason Fossen)
+'Last Updated: 17.Sep.2016
 '     Purpose: Dumps the contents of a local/remote Event Log to a local CSV file.
 '              Optionally dump all logs at once.  Optionally clear one/all logs.
 '              Comma-separated value (CSV) files can be opened directly in Excel or
